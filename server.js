@@ -8,7 +8,7 @@ const superAgent = require( 'superagent' );
 const pg = require( 'pg' );
 
 const client = new pg.Client( { connectionString: process.env.DATABASE_URL,
-  // ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false }
 } );
 
 const PORT = process.env.PORT || 5000;
