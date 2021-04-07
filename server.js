@@ -8,7 +8,7 @@ const superAgent = require( 'superagent' );
 const pg = require( 'pg' );
 
 const client = new pg.Client( { connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  // ssl: { rejectUnauthorized: false }
 } );
 
 const PORT = process.env.PORT || 5000;
@@ -18,6 +18,8 @@ server.get( '/', homeHandler );
 server.get( '/location', locationHandler );
 server.get( '/weather', weatherHandler );
 server.get( '/parks', parksHandler );
+server.get( '/movies', moviesHandler );
+server.get( '/yelp', yelpHandler );
 server.get( '*', errorHandler );
 
 function homeHandler( request, response ) {
@@ -75,6 +77,53 @@ function parksHandler( request, response ) {
     } );
 }
 
+function moviesHandler( request, response ){
+  let city = request.query.search_query;
+  let key = process.env.MOVIES_KEY;
+  let moviesURL = `https://api.themoviedb.org/3/search/movie?api_key=${key}&query=${city}`;
+  superAgent.get( moviesURL )
+    .then( movieData =>{
+      let apiData = movieData.body;
+      console.log( apiData );
+      let result = apiData.results.map( element=> new Movie ( element ) );
+      response.send( result );
+    } );
+}
+
+function yelpHandler( request, response ){
+  let city = request.query.search_query;
+  let page = request.query.page;
+  let key = process.env.YELP_KEY;
+  let numPerPage = 5;
+  let start = ( ( page - 1 ) * numPerPage );
+  let yelpURL = `https://api.yelp.com/v3/businesses/search?location=${city}&limit=${numPerPage}&offset=${start}`;
+  superAgent.get( yelpURL )
+    .set( 'Authorization', `Bearer ${key}` )
+    .then( yelpData=>{
+      let apiData = yelpData.body;
+      console.log( apiData );
+      let result = apiData.businesses.map( element=> new Yelp ( element ) );
+      response.send( result );
+    } );
+}
+function Yelp ( data ){
+  this.name = data.name;
+  this.image_url = data.image_url;
+  this.price = data.price;
+  this.rating = data.rating;
+  this.url = data.url;
+}
+
+function Movie ( data ){
+  this.title = data.original_title;
+  this.overview = data.overview;
+  this.average_votes = data.vote_average;
+  this.total_votes = data.vote_count;
+  this.image_url = `https://image.tmdb.org/t/p/w500/${data.poster_path}`;
+  this.popularity = data.popularity;
+  this.released_on = data.release_date;
+}
+
 function Location( city, data ) {
   this.search_query = city;
   this.formatted_query = data[0].display_name;
@@ -105,6 +154,7 @@ function Park( data ){
   this.description = data.description;
   this.url = data.url;
 }
+
 function errorHandler( request, response ) {
   let errorObj = {
     status: 500,
